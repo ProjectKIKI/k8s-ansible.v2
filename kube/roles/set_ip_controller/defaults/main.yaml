@@ -1,0 +1,4 @@
+# roles/configure_network/defaults/main.yml
+network_connection_name: "System ens4"
+ipv4_method: "manual"
+ipv4_address: "192.168.10.10/16"

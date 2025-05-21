@@ -1,0 +1,56 @@
+---
+- name: Add CSI driver NFS Helm repo
+  ansible.builtin.command:
+    cmd: helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+  register: helm_repo_add_result
+
+- name: Install CSI driver NFS
+  ansible.builtin.command:
+    cmd: helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs --namespace kube-system --version v4.9.0
+  register: helm_install_result
+
+- name: List installed Helm releases
+  ansible.builtin.command:
+    cmd: helm list --namespace kube-system
+
+- name: Get CSI driver pods
+  ansible.builtin.command:
+    cmd: kubectl --namespace=kube-system get pods --selector="app.kubernetes.io/instance=csi-driver-nfs"
+
+- name: Create storageclass-configure.yaml from template
+  ansible.builtin.template:
+    src: storageclass-configure.yaml.j2
+    dest: /root/storageclass-configure.yaml
+    mode: '0644'
+
+- name: Apply StorageClass configuration
+  ansible.builtin.command:
+    cmd: kubectl apply -f /root/storageclass-configure.yaml
+
+- name: Get StorageClasses, PVs, and PVCs
+  ansible.builtin.command:
+    cmd: kubectl get sc,pv,pvc
+
+- name: Disable firewalld service
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: false
+    state: stopped
+
+- name: Disable SELinux enforcement
+  ansible.builtin.command:
+    cmd: setenforce 0
+
+- name: Create blog-pod-pvc.yaml from template
+  ansible.builtin.template:
+    src: blog-pod-pvc.yaml.j2
+    dest: /root/blog-pod-pvc.yaml
+    mode: '0644'
+
+- name: Create PVC using blog-pod-pvc.yaml
+  ansible.builtin.command:
+    cmd: kubectl create -f /root/blog-pod-pvc.yaml
+
+- name: Get PersistentVolumeClaims
+  ansible.builtin.command:
+    cmd: kubectl get pvc

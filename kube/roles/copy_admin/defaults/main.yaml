@@ -1,0 +1,3 @@
+---
+remote_password: rocky
+infra_ip: "{{ hostvars['infra']['ansible_host'] }}"

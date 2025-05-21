@@ -1,0 +1,12 @@
+---
+- name: Ensure kubeconfig environment variable is set for the current user
+  lineinfile:
+    path: ~/.bashrc
+    regexp: '^export KUBECONFIG='
+    line: 'export KUBECONFIG=/root/admin.conf'
+    state: present
+
+- name: Source ~/.bashrc to apply changes
+  shell: source /root/.bashrc
+  args:
+    executable: /bin/bash

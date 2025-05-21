@@ -1,0 +1,62 @@
+---
+# tasks/main.yml
+- name: Copy kubeadm config file
+  copy:
+    src: kubeadm-config.yaml
+    dest: /root/kubeadm-config.yaml
+
+- name: Initialize Kubernetes on controller node
+  shell: kubeadm init --config=/root/kubeadm-config.yaml
+  args:
+    creates: /etc/kubernetes/admin.conf
+
+- name: Ensure kubeconfig environment variable is set for the current user
+  lineinfile:
+    path: ~/.bashrc
+    regexp: '^export KUBECONFIG='
+    line: 'export KUBECONFIG=/etc/kubernetes/admin.conf'
+    state: present
+
+- name: Source ~/.bashrc to apply changes
+  shell: source ~/.bashrc
+  args:
+    executable: /bin/bash
+
+- name: Helm repo 추가
+  ansible.builtin.command:
+    cmd: "helm repo add projectcalico https://docs.tigera.io/calico/charts"
+  changed_when: false
+
+- name: Helm repo 업데이트
+  ansible.builtin.command:
+    cmd: "helm repo update"
+  changed_when: false
+
+- name: Kubernetes 네임스페이스 생성 (tigera-operator)
+  ansible.builtin.command:
+    cmd: "kubectl create namespace tigera-operator"
+  register: ns_result
+  failed_when: ns_result.rc != 0 and 'AlreadyExists' not in ns_result.stderr
+  changed_when: "'created' in ns_result.stdout"
+
+- name: Calico 설치
+  ansible.builtin.command:
+    cmd: "helm install calico projectcalico/tigera-operator --version v3.27.5 --namespace tigera-operator"
+
+- name: Control-plane 노드 Taint 설정 해제
+  ansible.builtin.command:
+    cmd: "kubectl taint node node1.example.com node-role.kubernetes.io/control-plane:NoSchedule-"
+  register: taint_result
+  failed_when: taint_result.rc != 0 and 'not found' not in taint_result.stderr
+  changed_when: "'tainted' in taint_result.stdout"
+
+- name: Calico CRD 파일 복사
+  ansible.builtin.copy:
+    src: calico-quay-crd.yaml
+    dest: "/tmp/calico-quay-crd.yaml"
+    mode: '0644'
+
+- name: Calico CRD 적용
+  ansible.builtin.command:
+    cmd: "kubectl apply -f /tmp/calico-quay-crd.yaml"
+  changed_when: false

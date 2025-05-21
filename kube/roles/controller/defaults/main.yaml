@@ -1,0 +1,5 @@
+---
+kubeconfig_path: "/etc/kubernetes/admin.conf"
+calico_namespace: "tigera-operator"
+calico_version: "v3.27.5"
+calico_helm_chart: "projectcalico/tigera-operator"

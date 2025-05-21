@@ -1,0 +1,8 @@
+---
+- name: Setup Kubernetes and join on compute1
+  hosts: all
+  become: true
+  roles:
+    - set_hostname_compute2
+    - common
+    - join

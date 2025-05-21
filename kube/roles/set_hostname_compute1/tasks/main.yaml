@@ -1,0 +1,7 @@
+- name: Set hostname to node2.example.com
+  ansible.builtin.hostname:
+    name: node2.example.com
+
+- name: Set hostname using hostnamectl to ensure proper application
+  ansible.builtin.command:
+    cmd: hostnamectl set-hostname node2.example.com

@@ -1,0 +1,67 @@
+---
+- name: OpenStack Server Management
+  hosts: localhost
+  gather_facts: false
+  vars:
+    auth:
+      auth_url: "https://vlab.dustbox.kr:5000/v3"
+      username: "jkb"
+      password: "rkfaorltkf"
+      project_name: "jkb"
+      user_domain_name: "student"
+      project_domain_name: "student"
+  tasks:
+    - name: Authenticate with OpenStack
+      openstack.cloud.auth:
+        auth: "{{ auth }}"
+      register: openstack_auth
+
+    - name: Get server list
+      openstack.cloud.server_info:
+        auth: "{{ auth }}"
+      register: servers_info
+
+    - debug:
+        msg: "{{ servers_info.servers }}"
+
+    - name: Create a new server
+      openstack.cloud.server:
+        auth: "{{ auth }}"
+        name: "test"
+        state: "present"
+        image: "7666e39a-b7c4-4cd1-b10b-2e3cb28fc221"
+        flavor: "ca9f1fcb-2ed7-42ac-ab93-bf28bc954ae2"
+        networks:
+          - uuid: "6c07f67e-1ea4-4726-bf6b-3a83bebb49ff"
+        security_groups:
+          - "f8ffe0b7-9bcf-4927-a5e1-5fba3d85e6ae"
+        user_data: |
+          #cloud-config
+          package_update: true
+          package_upgrade: true
+
+          users:
+            - default
+            - name: root
+              ssh_authorized_keys:
+                - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQClzwCTH9G9Xg6rNh0sm4bF3tVFZJuOELZMpJ82mCd0YwDSMt15CHC4CuwtbbViPKL6b82EuTpaCrG2IxD8JOw5FYcVzIHaUGtkYtAOm4LAlVjns9Wc6D96VK9M117oazIk9PwbrCtmNPgQj0iWlUahClru/dNPrwru0tYytdr0XbYs38mBarTdezHNU/6cFSJZFV7s38IE/iVnCdc11hjsxxQH/AUTy5YoktX999dqdblEMOCIURRw7Gu2iUHhR4460o/Q4A4hVoK0QsJ15YgFhIX5wK0QdPpcJBc1Fz15aLYBEAHQctU15WYppepDge+Sjw9DLSWf+1eMgEygZQMV Generated-by-Nova
+              sudo: ALL=(ALL) NOPASSWD:ALL
+              shell: /bin/bash
+              lock_passwd: false
+
+          write_files:
+            - path: /etc/ssh/sshd_config
+              append: true
+              content: |
+                PermitRootLogin yes
+                PubkeyAuthentication yes
+                PasswordAuthentication yes
+
+          runcmd:
+            - rm -rf /etc/ssh/sshd_config.d/50-cloud-init.conf
+            - systemctl restart sshd
+        config_drive: true
+      register: new_server
+
+    - debug:
+        msg: "New server created: {{ new_server.server }}"

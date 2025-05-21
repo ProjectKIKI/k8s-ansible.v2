@@ -1,0 +1,14 @@
+---
+- name: Ensure kubeadm-join-config.yaml is present on the compute node
+  ansible.builtin.copy:
+    src: kubeadm-join-config.yaml
+    dest: /etc/kubernetes/kubeadm-join-config.yaml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Join the compute node to the Kubernetes cluster
+  ansible.builtin.command:
+    cmd: kubeadm join --config=/etc/kubernetes/kubeadm-join-config.yaml
+  register: kubeadm_join_result
+  changed_when: "'This node has joined the cluster' in kubeadm_join_result.stdout"

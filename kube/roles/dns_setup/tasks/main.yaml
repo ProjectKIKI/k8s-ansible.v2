@@ -1,0 +1,53 @@
+---
+- name: Remove existing BIND installation
+  ansible.builtin.yum:
+    name: bind
+    state: absent
+
+- name: Install BIND
+  ansible.builtin.yum:
+    name: bind
+    state: present
+
+- name: Update named.rfc1912.zones file
+  ansible.builtin.template:
+    src: named.rfc1912.zones.j2
+    dest: /etc/named.rfc1912.zones
+    mode: '0644'
+
+- name: Create zone file for demo.io
+  ansible.builtin.template:
+    src: demo.io.zone.j2
+    dest: /var/named/demo.io.zone
+    mode: '0644'
+
+- name: Update named.conf to listen on all interfaces
+  ansible.builtin.lineinfile:
+    path: /etc/named.conf
+    regexp: 'listen-on port 53 {.*};'
+    line: 'listen-on port 53 { any; };'
+
+- name: Update named.conf to allow queries from any source
+  ansible.builtin.lineinfile:
+    path: /etc/named.conf
+    regexp: 'allow-query\s+{.*};'
+    line: 'allow-query     { any; };'
+
+- name: Set ownership of zone file
+  ansible.builtin.command:
+    cmd: chown named:named /var/named/demo.io.zone
+
+- name: Enable and start named service
+  ansible.builtin.systemd:
+    name: named
+    enabled: yes
+    state: started
+
+- name: Check named service status
+  ansible.builtin.shell:
+    cmd: systemctl is-active named
+  register: named_status
+
+- name: Display reminder to update resolv.conf
+  ansible.builtin.debug:
+    msg: "********** Append 'nameserver' to /etc/resolv.conf **********"

@@ -1,0 +1,53 @@
+---
+- name: Add the MetalLB Helm repository
+  ansible.builtin.command:
+    cmd: "helm repo add metallb https://metallb.github.io/metallb"
+  register: add_repo
+  changed_when: "'has been added' in add_repo.stdout or add_repo.stderr"
+
+- name: Install MetalLB using Helm
+  ansible.builtin.command:
+    cmd: "helm install metallb metallb/metallb --namespace {{ namespace }} --create-namespace"
+  register: install_metallb
+  changed_when: "'STATUS: deployed' in install_metallb.stdout"
+
+- name: Backup kube-proxy ConfigMap
+  ansible.builtin.command:
+    cmd: "kubectl get configmap kube-proxy -n kube-system -o yaml"
+  register: kube_proxy_config
+  changed_when: false
+
+- name: Update kube-proxy strictARP to true
+  ansible.builtin.shell: |
+    echo "{{ kube_proxy_config.stdout }}" | \
+    sed -e "s/strictARP: false/strictARP: true/" | \
+    kubectl apply -f - -n kube-system
+  changed_when: true
+
+- name: Create IPAddressPool manifest
+  ansible.builtin.template:
+    src: ippool.yaml.j2
+    dest: /tmp/ippool.yaml
+
+- name: Create L2Advertisement manifest
+  ansible.builtin.template:
+    src: l2.yaml.j2
+    dest: /tmp/l2.yaml
+
+- name: Apply IPAddressPool manifest
+  ansible.builtin.command:
+    cmd: "kubectl apply -f /tmp/ippool.yaml"
+
+- name: Apply L2Advertisement manifest
+  ansible.builtin.command:
+    cmd: "kubectl apply -f /tmp/l2.yaml"
+
+- name: Verify IPAddressPool resource
+  ansible.builtin.command:
+    cmd: "kubectl get -f /tmp/ippool.yaml"
+  changed_when: false
+
+- name: Verify L2Advertisement resource
+  ansible.builtin.command:
+    cmd: "kubectl get -f /tmp/l2.yaml"
+  changed_when: false

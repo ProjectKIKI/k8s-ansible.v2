@@ -1,0 +1,9 @@
+---
+- name: Install sshpass
+  ansible.builtin.yum:
+    name: sshpass
+    state: present
+
+- name: Copy admin.conf to remote host
+  ansible.builtin.shell:
+    cmd: sshpass -p "{{ remote_password }}" scp -o StrictHostKeyChecking=no /etc/kubernetes/admin.conf root@192.168.0.210:/root/

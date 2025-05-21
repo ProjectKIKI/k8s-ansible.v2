@@ -1,0 +1,13 @@
+---
+- name: Set up Infra nodes
+  hosts: all
+  become: yes
+  roles:
+    - set_hostname_infra
+    - common
+    - infra
+    - nfs_setup
+    - install_helm
+    - pvc_setup
+    - dns_setup
+    - join

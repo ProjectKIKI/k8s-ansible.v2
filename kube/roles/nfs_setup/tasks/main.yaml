@@ -1,0 +1,46 @@
+---
+- name: Install NFS utilities
+  ansible.builtin.yum:
+    name: nfs-utils
+    state: present
+
+- name: Enable and start the NFS server
+  ansible.builtin.systemd:
+    name: nfs-server
+    enabled: true
+    state: started
+
+- name: Create NFS export directory
+  ansible.builtin.file:
+    path: /nfs
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure NFS exports
+  ansible.builtin.template:
+    src: kubernetes.exports.j2
+    dest: /etc/exports.d/kubernetes.exports
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Reload NFS exports
+  ansible.builtin.command:
+    cmd: exportfs -avrs
+
+- name: Show exported NFS shares
+  ansible.builtin.command:
+    cmd: showmount -e storage.example.com
+  register: showmount_output
+
+- name: Print exported NFS shares
+  ansible.builtin.debug:
+    msg: "{{ showmount_output.stdout_lines }}"
+
+- name: Disable and stop the firewalld service
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: false
+    state: stopped

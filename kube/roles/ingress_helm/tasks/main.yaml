@@ -1,0 +1,18 @@
+---
+- name: Add the Traefik Helm repository
+  ansible.builtin.command:
+    cmd: "helm repo add traefik https://traefik.github.io/charts"
+  register: add_traefik_repo
+  changed_when: "'has been added' in add_traefik_repo.stdout or add_traefik_repo.stderr"
+
+- name: Update Helm repositories
+  ansible.builtin.command:
+    cmd: "helm repo update"
+  register: update_helm_repos
+  changed_when: "'Successfully' in update_helm_repos.stdout"
+
+- name: Install Traefik using Helm
+  ansible.builtin.command:
+    cmd: "helm install traefik traefik/traefik --namespace traefik --create-namespace"
+  register: install_traefik
+  changed_when: "'STATUS: deployed' in install_traefik.stdout"

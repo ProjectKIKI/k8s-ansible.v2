@@ -1,0 +1,30 @@
+---
+# tasks/main.yml
+- name: Install required packages
+  ansible.builtin.dnf:
+    name:
+      - git
+      - tar
+    state: present
+
+- name: Download Helm installation script
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get_helm.sh
+    mode: '0755'
+
+- name: Create ~/bin directory
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/bin"
+    state: directory
+    mode: '0755'
+
+- name: Execute Helm installation script
+  ansible.builtin.shell: sh /tmp/get_helm.sh
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Move Helm binary to ~/bin
+  ansible.builtin.command: mv /usr/local/bin/helm {{ ansible_env.HOME }}/bin
+  args:
+    removes: /usr/local/bin/helm

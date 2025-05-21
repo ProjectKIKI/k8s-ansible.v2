@@ -1,0 +1,13 @@
+# roles/configure_network/tasks/main.yml
+---
+- name: Configure IPv4 address for the network connection
+  ansible.builtin.command:
+    cmd: "nmcli connection modify '{{ network_connection_name }}' ipv4.addresses '{{ ipv4_address }}'"
+
+- name: Configure IPv4 method for the network connection
+  ansible.builtin.command:
+    cmd: "nmcli connection modify '{{ network_connection_name }}' ipv4.method '{{ ipv4_method }}'"
+
+- name: Bring up the network connection
+  ansible.builtin.command:
+    cmd: "nmcli connection up '{{ network_connection_name }}'"

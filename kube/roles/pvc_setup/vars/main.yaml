@@ -1,0 +1,5 @@
+---
+nfs_server: storage.example.com
+nfs_share: /nfs
+storage_class_name: default
+storage_request_size: 2Gi
