@@ -1,0 +1,9 @@
+---
+- name: Set hostname based on inventory hostname
+  ansible.builtin.hostname:
+    name: "{{ node_hostname | default(inventory_hostname + '.example.com') }}"
+
+- name: Set hostname using hostnamectl to ensure proper application
+  ansible.builtin.command:
+    cmd: "hostnamectl set-hostname {{ node_hostname | default(inventory_hostname + '.example.com') }}"
+  changed_when: false 

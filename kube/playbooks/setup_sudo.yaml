@@ -1,0 +1,58 @@
+---
+# Rocky 사용자를 위한 sudo 설정 playbook
+- name: Setup sudo for rocky user
+  hosts: all
+  gather_facts: yes
+  vars:
+    target_user: "{{ ansible_user | default('rocky') }}"
+  
+  tasks:
+    - name: Check if target user exists
+      getent:
+        database: passwd
+        key: "{{ target_user }}"
+      register: user_check
+      failed_when: false
+    
+    - name: Fail if user doesn't exist
+      fail:
+        msg: "사용자 {{ target_user }}가 존재하지 않습니다."
+      when: user_check.failed
+    
+    - name: Check if user is already in wheel group
+      shell: groups {{ target_user }}
+      register: user_groups
+      changed_when: false
+    
+    - name: Add user to wheel group if not already member
+      user:
+        name: "{{ target_user }}"
+        groups: wheel
+        append: yes
+      when: "'wheel' not in user_groups.stdout"
+      become: yes
+    
+    - name: Ensure wheel group has passwordless sudo
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%wheel\s'
+        line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+        validate: '/usr/sbin/visudo -cf %s'
+      become: yes
+    
+    - name: Test sudo access
+      shell: sudo -n whoami
+      become: no
+      become_user: "{{ target_user }}"
+      register: sudo_test
+      changed_when: false
+    
+    - name: Display sudo test result
+      debug:
+        msg: "Sudo 테스트 결과: {{ sudo_test.stdout }}"
+    
+    - name: Fail if sudo test failed
+      fail:
+        msg: "{{ target_user }} 사용자의 sudo 설정이 실패했습니다."
+      when: sudo_test.stdout != "root" 
