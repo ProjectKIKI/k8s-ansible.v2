@@ -26,8 +26,11 @@
       gpgcheck=1
       gpgkey=https://pkgs.k8s.io/addons:/cri-o:/stable:/{{ crio_version }}/rpm/repodata/repomd.xml.key
 
-- name: Clean DNF cache and update repository metadata
-  command: dnf clean all && dnf makecache
+- name: Clean DNF cache
+  command: dnf clean all
+
+- name: Update repository metadata
+  command: dnf makecache
 
 - name: Check available Kubernetes package versions
   shell: dnf list available kubelet kubeadm kubectl --showduplicates | grep -E "kubelet|kubeadm|kubectl" | head -10
