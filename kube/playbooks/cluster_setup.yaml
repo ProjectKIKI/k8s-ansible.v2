@@ -1,7 +1,7 @@
 ---
 # Kubernetes 클러스터 전체 설정을 위한 통합 playbook
 - name: Setup Kubernetes Controller (Master) Node
-  hosts: k8s-controller
+  hosts: k8s_controller
   become: true
   serial: 1  # 마스터 노드를 먼저 설정
   roles:
@@ -15,7 +15,7 @@
     - controller
 
 - name: Setup Kubernetes Worker Nodes
-  hosts: k8s-workers
+  hosts: k8s_workers
   become: true
   serial: 1  # 워커 노드들을 순차적으로 설정
   roles:
@@ -27,18 +27,18 @@
     - compute
 
 - name: Setup Infrastructure Node (if exists)
-  hosts: k8s-infra
+  hosts: k8s_infra
   become: true
   roles:
     - set_hostname
     - infra
-  when: "'k8s-infra' in groups and groups['k8s-infra']|length > 0"
+  when: "'k8s_infra' in groups and groups['k8s_infra']|length > 0"
   tags:
     - infra
     - infrastructure
 
 - name: Verify Cluster Status
-  hosts: k8s-controller
+  hosts: k8s_controller
   become: true
   tasks:
     - name: Wait for cluster to be ready

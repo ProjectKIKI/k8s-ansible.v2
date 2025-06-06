@@ -1,0 +1,131 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ansible-k8s-bootstrap
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      restartPolicy: Never
+      volumes:
+      - name: repo
+        emptyDir: {}
+      - name: host-ssh
+        secret:
+          secretName: ansible-ssh-key
+          defaultMode: 0400
+
+      initContainers:
+      - name: git-clone
+        image: docker.io/alpine/git:latest
+        workingDir: /repo
+        command: ["sh", "-c", "git clone --depth 1 https://github.com/ProjectKIKI/k8s-ansible.v2.git /repo/k8s-ansible.v2"]
+        volumeMounts:
+        - name: repo
+          mountPath: /repo
+
+      containers:
+      - name: ansible
+        image: quay.io/ansible/ansible-runner:latest
+        workingDir: /repo/k8s-ansible.v2/kube
+        command: ["sh", "-c"]
+        args:
+        - |
+          set -e
+          echo "=== Ansible 환경 확인 ==="
+          ansible --version
+          python3 --version
+          
+          echo "=== 작업 디렉토리 확인 ==="
+          pwd
+          ls -la
+          
+          echo "=== SSH 키 디렉토리 상세 확인 ==="
+          echo "SSH 디렉토리 내용:"
+          ls -la /runner/ssh/
+          echo "파일 상세 정보:"
+          find /runner/ssh/ -type f -exec ls -la {} \;
+          echo "파일 내용 확인 (처음 몇 줄):"
+          find /runner/ssh/ -type f -exec head -2 {} \;
+          
+          echo "=== SSH 키 파일 통합 및 권한 설정 ==="
+          # SSH 키 디렉토리 생성
+          mkdir -p /tmp/ssh
+          
+          # SSH 키 파일들을 확인하고 /tmp에 복사
+          SSH_KEY_PATH=""
+          if [ -f /runner/ssh/ssh-privatekey ]; then
+            SSH_KEY_PATH="/runner/ssh/ssh-privatekey"
+          elif [ -f /runner/ssh/id_rsa ]; then
+            SSH_KEY_PATH="/runner/ssh/id_rsa"
+          else
+            # Symlink된 파일 찾기
+            SSH_KEY_PATH=$(find /runner/ssh/ -name "*privatekey" -o -name "id_rsa" -o -name "ansible-ssh-key" | head -1)
+            if [ -z "$SSH_KEY_PATH" ]; then
+              # 모든 파일 중 첫 번째 파일 사용
+              SSH_KEY_PATH=$(find /runner/ssh/ -type f | head -1)
+            fi
+          fi
+          
+          if [ -n "$SSH_KEY_PATH" ]; then
+            echo "SSH 키 파일을 발견했습니다: $SSH_KEY_PATH"
+            cp "$SSH_KEY_PATH" /tmp/ssh/ansible-ssh-key
+            chmod 400 /tmp/ssh/ansible-ssh-key
+            echo "SSH 키를 /tmp/ssh/ansible-ssh-key로 복사했습니다"
+            ls -la /tmp/ssh/ansible-ssh-key
+          else
+            echo "ERROR: SSH 키 파일을 찾을 수 없습니다!"
+            exit 1
+          fi
+          
+          echo "=== Inventory 파일 수정 ==="
+          # 동적으로 inventory의 SSH 키 경로를 /tmp 경로로 업데이트
+          sed -i 's|ansible_ssh_private_key_file: /runner/ssh/.*|ansible_ssh_private_key_file: /tmp/ssh/ansible-ssh-key|g' inventory/kube.yaml
+          echo "수정된 inventory 파일:"
+          cat inventory/kube.yaml
+          
+          echo "=== SSH 키 테스트 ==="
+          # SSH 키로 직접 연결 테스트
+          ssh -i /tmp/ssh/ansible-ssh-key -o StrictHostKeyChecking=no -o ConnectTimeout=10 rocky@10.10.10.213 "echo 'SSH 연결 성공'" || echo "SSH 직접 연결 실패"
+          
+          echo "=== 연결 테스트 ==="
+          ansible all -i inventory/kube.yaml -m ping -vvvv || echo "연결 테스트 실패 - 계속 진행"
+          
+          echo "=== Inventory 유효성 검사 ==="
+          ansible-inventory -i inventory/kube.yaml --list
+          
+          echo "=== 호스트별 개별 연결 테스트 ==="
+          for host in controller compute1 compute2 infra; do
+            echo "Testing connection to $host..."
+            ansible $host -i inventory/kube.yaml -m ping -v || echo "$host 연결 실패"
+          done
+          
+          echo "=== 클러스터 설치 시작 ==="
+          chmod +x setup_cluster.sh
+          
+          # 먼저 sudo 설정 확인
+          echo "=== Sudo 설정 필요 여부 확인 ==="
+          if ansible all -i inventory/kube.yaml -m shell -a 'sudo -n whoami' --become -v | grep -q "root"; then
+            echo "Passwordless sudo 이미 설정됨 - 바로 클러스터 설치 진행"
+            ./setup_cluster.sh -v
+          else
+            echo "Passwordless sudo 설정 필요 - sudo 설정 후 클러스터 설치"
+            ./setup_cluster.sh -S -K -v
+          fi
+        env:
+        - name: ANSIBLE_HOST_KEY_CHECKING
+          value: "false"
+        - name: ANSIBLE_SSH_RETRIES
+          value: "3"
+        - name: ANSIBLE_TIMEOUT
+          value: "30"
+        - name: ANSIBLE_SSH_ARGS
+          value: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+        volumeMounts:
+        - name: repo
+          mountPath: /repo
+        - name: host-ssh
+          mountPath: /runner/ssh
+          readOnly: true 

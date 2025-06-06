@@ -131,15 +131,20 @@ Rocky Linux에서 `rocky` 사용자가 passwordless sudo를 사용할 수 있도
 ```yaml
 all:
   children:
-    k8s-cluster:
+    k8s_cluster:
       children:
-        k8s-controller:     # 마스터 노드 그룹
-        k8s-workers:        # 워커 노드 그룹
+        k8s_controller:     # 마스터 노드 그룹
+        k8s_workers:        # 워커 노드 그룹
           children:
-            k8s-compute1:
-            k8s-compute2:
-    k8s-infra:              # 인프라 노드 그룹
+            k8s_compute1:
+            k8s_compute2:
+    k8s_infra:              # 인프라 노드 그룹
 ```
+
+### 중요한 그룹명 규칙
+- Ansible에서는 그룹명에 하이픈(`-`)을 사용할 수 없습니다
+- 모든 그룹명에는 언더스코어(`_`)를 사용합니다
+- 예: `k8s_controller`, `k8s_workers`, `k8s_compute1` 등
 
 ### 노드 추가 방법
 
@@ -147,7 +152,7 @@ all:
 
 1. `inventory/kube.yaml`에 새 노드 추가:
 ```yaml
-k8s-compute3:
+k8s_compute3:
   hosts:
     compute3:
       ansible_host: 192.168.0.203
@@ -155,13 +160,13 @@ k8s-compute3:
       node_role: worker
 ```
 
-2. `k8s-workers` 그룹에 추가:
+2. `k8s_workers` 그룹에 추가:
 ```yaml
-k8s-workers:
+k8s_workers:
   children:
-    k8s-compute1:
-    k8s-compute2:
-    k8s-compute3:  # 새로 추가
+    k8s_compute1:
+    k8s_compute2:
+    k8s_compute3:  # 새로 추가
 ```
 
 ## 스크립트 옵션
