@@ -7,24 +7,38 @@
       - tar
     state: present
 
-- name: Download Helm installation script
-  ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-    dest: /tmp/get_helm.sh
-    mode: '0755'
+- name: Download pre-built helm tarball
+  get_url:
+    url: https://get.helm.sh/helm-v3.14.4-linux-amd64.tar.gz
+    dest: /tmp/helm.tar.gz
+    mode: '0644'
+  register: helm_pkg
 
-- name: Create ~/bin directory
-  ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/bin"
-    state: directory
-    mode: '0755'
+- name: Extract helm binary
+  unarchive:
+    src: /tmp/helm.tar.gz
+    dest: /tmp
+    remote_src: yes
+  when: helm_pkg.changed    
 
-- name: Execute Helm installation script
-  ansible.builtin.shell: sh /tmp/get_helm.sh
+- name: Install helm to /usr/local/bin
+  command: install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm
   args:
     creates: /usr/local/bin/helm
 
-- name: Move Helm binary to ~/bin
-  ansible.builtin.command: mv /usr/local/bin/helm {{ ansible_env.HOME }}/bin
-  args:
-    removes: /usr/local/bin/helm
+- name: Create symlink for helm in /usr/bin
+  file:
+    src: /usr/local/bin/helm
+    dest: /usr/bin/helm
+    state: link
+  ignore_errors: yes
+
+- name: Verify helm installation
+  shell: /usr/local/bin/helm version --short
+  register: helm_version
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  
+- name: Display helm version
+  debug:
+    msg: "Helm version: {{ helm_version.stdout }}"
