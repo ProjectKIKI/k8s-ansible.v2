@@ -1,4 +1,10 @@
 ---
+- name: Set Kubernetes and CRI-O versions
+  set_fact:
+    kubernetes_version: "v1.31"
+    crio_version: "v1.31"
+    k8s_package_version: "1.31.1-1.1"
+
 - name: Add Kubernetes YUM repository
   copy:
     dest: /etc/yum.repos.d/kubernetes.repo
@@ -27,14 +33,20 @@
   changed_when: false
   ignore_errors: true
 
-- name: Install required packages
+- name: Install CRI-O with specific version
   dnf:
     name:
       - cri-o
-      - kubelet
-      - kubeadm
-      - kubectl
     state: present
+
+- name: Install Kubernetes packages with specific versions
+  dnf:
+    name:
+      - "kubelet-{{ k8s_package_version }}"
+      - "kubeadm-{{ k8s_package_version }}"
+      - "kubectl-{{ k8s_package_version }}"
+    state: present
+    allow_downgrade: yes
 
 - name: Enable and start CRI-O and Kubelet services
   systemd:

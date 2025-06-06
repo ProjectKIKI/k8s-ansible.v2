@@ -120,8 +120,12 @@ spec:
           ansible-playbook -i inventory/kube.yaml playbooks/cluster_setup.yaml --tags master -v || echo "마스터 설치 실패"
           ansible-playbook -i inventory/kube.yaml playbooks/cluster_setup.yaml --tags worker -v || echo "워커 설치 실패"
         env:
+        - name: ANSIBLE_FORCE_COLOR
+          value: "1"
+        - name: ANSIBLE_STDOUT_CALLBACK
+          value: "yaml"
         - name: ANSIBLE_HOST_KEY_CHECKING
-          value: "false"
+          value: "False"
         - name: PATH
           value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         volumeMounts:
