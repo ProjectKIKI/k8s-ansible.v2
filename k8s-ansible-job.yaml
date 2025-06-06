@@ -48,9 +48,27 @@ spec:
         args:
         - |
           set -e
+          echo "=== Ansible 환경 설정 ==="
+          # OpenStack inventory plugin 비활성화
+          echo "OpenStack inventory plugin 비활성화..."
+          cat >> ansible.cfg << EOF
+
+# OpenStack inventory plugin 비활성화
+[inventory]
+enable_plugins = host_list, script, auto, yaml, ini, toml
+EOF
+          
+          echo "=== 필수 Ansible Collection 설치 ==="
+          # SELinux 모듈을 위한 ansible.posix collection 설치
+          ansible-galaxy collection install ansible.posix --force
+          ansible-galaxy collection install kubernetes.core --force
+          
           echo "=== Ansible 환경 확인 ==="
           ansible --version
           python3 --version
+          
+          echo "=== ansible.cfg 확인 ==="
+          cat ansible.cfg
           
           echo "=== 작업 디렉토리 확인 ==="
           pwd
@@ -123,6 +141,22 @@ spec:
           echo "=== Playbook 수정 ==="
           # playbook의 hosts 그룹명도 수정
           sed -i 's/k8s-/k8s_/g' playbooks/cluster_setup.yaml
+          
+          echo "=== SELinux 모듈 문법 수정 ==="
+          # SELinux 모듈을 ansible.posix.selinux로 수정
+          find roles/ -name "*.yml" -o -name "*.yaml" | xargs sed -i 's/selinux:/ansible.posix.selinux:/g'
+          
+          # 혹시 다른 posix 모듈들도 수정
+          find roles/ -name "*.yml" -o -name "*.yaml" | xargs sed -i 's/mount:/ansible.posix.mount:/g'
+          find roles/ -name "*.yml" -o -name "*.yaml" | xargs sed -i 's/firewalld:/ansible.posix.firewalld:/g'
+          
+          # Kubernetes 모듈들도 FQCN으로 수정
+          find roles/ playbooks/ -name "*.yml" -o -name "*.yaml" | xargs sed -i 's/k8s_info:/kubernetes.core.k8s_info:/g'
+          find roles/ playbooks/ -name "*.yml" -o -name "*.yaml" | xargs sed -i 's/k8s:/kubernetes.core.k8s:/g'
+          
+          echo "=== 수정된 common role 확인 ==="
+          echo "SELinux 관련 부분:"
+          grep -n -A5 -B5 "selinux" roles/common/tasks/main.yml || echo "SELinux 설정 없음"
           
           echo "=== 클러스터 설치 시작 ==="
           chmod +x setup_cluster.sh
