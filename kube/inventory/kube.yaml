@@ -5,7 +5,7 @@ all:
         k8s_controller:
           hosts:
             controller:
-              ansible_host: 10.10.10.89
+              ansible_host: 10.10.10.43
               node_hostname: node1.example.com
               node_role: master
         k8s_workers:
@@ -13,19 +13,19 @@ all:
             k8s_compute1:
               hosts:
                 compute1:
-                  ansible_host: 10.10.10.227
+                  ansible_host: 10.10.10.154
                   node_hostname: node2.example.com
                   node_role: worker
             k8s_compute2:
               hosts:
                 compute2:
-                  ansible_host: 10.10.10.246
+                  ansible_host: 10.10.10.12
                   node_hostname: node3.example.com
                   node_role: worker
     k8s_infra:
       hosts:
         infra:
-          ansible_host: 10.10.10.95
+          ansible_host: 10.10.10.89
           node_hostname: infra.example.com
           node_role: infra
   vars:
