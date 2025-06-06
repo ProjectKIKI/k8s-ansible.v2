@@ -43,18 +43,18 @@ spec:
           ls -la
           
           echo "=== SSH 키 디렉토리 상세 확인 ==="
-          echo "SSH 디렉토리 내용:"
+          echo "SSH 키 디렉토리 내용:"
           ls -la /runner/ssh/
           echo "파일 상세 정보:"
           find /runner/ssh/ -type f -exec ls -la {} \;
           echo "파일 내용 확인 (처음 몇 줄):"
           find /runner/ssh/ -type f -exec head -2 {} \;
           
-          echo "=== SSH 키 파일 통합 및 권한 설정 ==="
+          echo "=== SSH 키 파일 설정 ==="
           # SSH 키 디렉토리 생성
           mkdir -p /tmp/ssh
           
-          # SSH 키 파일들을 확인하고 /tmp에 복사
+          # SSH 키 파일 찾기 및 복사
           SSH_KEY_PATH=""
           if [ -f /runner/ssh/ssh-privatekey ]; then
             SSH_KEY_PATH="/runner/ssh/ssh-privatekey"
@@ -81,8 +81,12 @@ spec:
           fi
           
           echo "=== Inventory 파일 수정 ==="
-          # 동적으로 inventory의 SSH 키 경로를 /tmp 경로로 업데이트
-          sed -i 's|ansible_ssh_private_key_file: /runner/ssh/.*|ansible_ssh_private_key_file: /tmp/ssh/ansible-ssh-key|g' inventory/kube.yaml
+          # inventory 파일의 SSH 키 경로를 /tmp 경로로 강제 수정
+          sed -i 's|ansible_ssh_private_key_file:.*|ansible_ssh_private_key_file: /tmp/ssh/ansible-ssh-key|g' inventory/kube.yaml
+          
+          # 추가로 그룹명도 수정 (하이픈을 언더스코어로)
+          sed -i 's/k8s-/k8s_/g' inventory/kube.yaml
+          
           echo "수정된 inventory 파일:"
           cat inventory/kube.yaml
           
@@ -91,29 +95,27 @@ spec:
           ssh -i /tmp/ssh/ansible-ssh-key -o StrictHostKeyChecking=no -o ConnectTimeout=10 rocky@10.10.10.213 "echo 'SSH 연결 성공'" || echo "SSH 직접 연결 실패"
           
           echo "=== 연결 테스트 ==="
-          ansible all -i inventory/kube.yaml -m ping -vvvv || echo "연결 테스트 실패 - 계속 진행"
+          ansible all -i inventory/kube.yaml -m ping -v || echo "연결 테스트 실패 - 계속 진행"
           
           echo "=== Inventory 유효성 검사 ==="
           ansible-inventory -i inventory/kube.yaml --list
           
-          echo "=== 호스트별 개별 연결 테스트 ==="
-          for host in controller compute1 compute2 infra; do
-            echo "Testing connection to $host..."
-            ansible $host -i inventory/kube.yaml -m ping -v || echo "$host 연결 실패"
-          done
+          echo "=== Playbook 수정 ==="
+          # playbook의 hosts 그룹명도 수정
+          sed -i 's/k8s-/k8s_/g' playbooks/cluster_setup.yaml
           
           echo "=== 클러스터 설치 시작 ==="
           chmod +x setup_cluster.sh
           
-          # 먼저 sudo 설정 확인
-          echo "=== Sudo 설정 필요 여부 확인 ==="
-          if ansible all -i inventory/kube.yaml -m shell -a 'sudo -n whoami' --become -v | grep -q "root"; then
-            echo "Passwordless sudo 이미 설정됨 - 바로 클러스터 설치 진행"
-            ./setup_cluster.sh -v
-          else
-            echo "Passwordless sudo 설정 필요 - sudo 설정 후 클러스터 설치"
-            ./setup_cluster.sh -S -K -v
-          fi
+          # Ansible playbook 직접 실행 (setup_cluster.sh 대신)
+          echo "=== 마스터 노드 설치 ==="
+          ansible-playbook -i inventory/kube.yaml playbooks/cluster_setup.yaml --tags master -v || echo "마스터 노드 설치 실패"
+          
+          echo "=== 워커 노드 설치 ==="
+          ansible-playbook -i inventory/kube.yaml playbooks/cluster_setup.yaml --tags worker -v || echo "워커 노드 설치 실패"
+          
+          echo "=== 클러스터 상태 확인 ==="
+          ansible-playbook -i inventory/kube.yaml playbooks/cluster_setup.yaml --tags verify -v || echo "상태 확인 실패"
         env:
         - name: ANSIBLE_HOST_KEY_CHECKING
           value: "false"
