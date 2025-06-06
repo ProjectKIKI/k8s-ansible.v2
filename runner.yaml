@@ -1,0 +1,130 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ansible-k8s-bootstrap
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      restartPolicy: Never
+      volumes:
+      - name: repo
+        emptyDir: {}
+      - name: host-ssh
+        secret:
+          secretName: ansible-ssh-key
+          defaultMode: 0400
+
+      initContainers:
+      - name: git-clone
+        image: docker.io/alpine/git:latest
+        workingDir: /repo
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          echo "=== 기존 파일 정리 ==="
+          rm -rf /repo/* || true
+          rm -rf /repo/.* 2>/dev/null || true
+          echo "=== Git Clone 시작 ==="
+          git clone --depth 1 https://github.com/ProjectKIKI/k8s-ansible.v2.git /repo/k8s-ansible.v2
+          echo "=== Clone 완료 ==="
+          ls -la /repo/k8s-ansible.v2/kube/
+        volumeMounts:
+        - name: repo
+          mountPath: /repo
+
+      containers:
+      - name: ansible
+        image: quay.io/ansible/ansible-runner:latest
+        workingDir: /repo/k8s-ansible.v2/kube
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          echo "=== Ansible 환경 설정 ==="
+          echo "현재 ansible.cfg 내용:"
+          cat ansible.cfg
+          
+          echo "=== ansible.cfg 재생성 ==="
+          rm -f ansible.cfg
+          echo "[defaults]" > ansible.cfg
+          echo "inventory = ./inventory/hosts" >> ansible.cfg
+          echo "remote_user = rocky" >> ansible.cfg
+          echo "host_key_checking = False" >> ansible.cfg
+          echo "retry_files_enabled = False" >> ansible.cfg
+          echo "roles_path = ./roles" >> ansible.cfg
+          echo "" >> ansible.cfg
+          echo "[inventory]" >> ansible.cfg
+          echo "enable_plugins = host_list, script, auto, yaml, ini, toml" >> ansible.cfg
+          
+          echo "수정된 ansible.cfg 내용:"
+          cat ansible.cfg
+          
+          echo "=== Collection 설치 ==="
+          echo "Ansible 버전 확인:"
+          ansible --version
+          
+          echo "호환되는 Collection 버전 설치..."
+          ansible-galaxy collection install ansible.posix:1.4.0 --force
+          ansible-galaxy collection install kubernetes.core:2.3.2 --force
+          
+          echo "설치된 Collection 확인:"
+          ansible-galaxy collection list
+          
+          echo "=== SSH 키 설정 ==="
+          mkdir -p /tmp/ssh
+          SSH_KEY_FILE=$(find /runner/ssh/ -type f | head -1)
+          if [ -n "$SSH_KEY_FILE" ]; then
+            cp "$SSH_KEY_FILE" /tmp/ssh/ansible-ssh-key
+            chmod 400 /tmp/ssh/ansible-ssh-key
+            echo "SSH 키 복사 완료: $SSH_KEY_FILE -> /tmp/ssh/ansible-ssh-key"
+            ls -la /tmp/ssh/ansible-ssh-key
+          else
+            echo "SSH 키 파일을 찾을 수 없습니다!"
+            exit 1
+          fi
+          
+          echo "=== Inventory 수정 ==="
+          sed -i 's|ansible_ssh_private_key_file:.*|ansible_ssh_private_key_file: /tmp/ssh/ansible-ssh-key|g' inventory/kube.yaml
+          sed -i 's/k8s-/k8s_/g' inventory/kube.yaml
+          
+          echo "수정된 inventory 내용:"
+          cat inventory/kube.yaml
+          
+          echo "=== Playbook 수정 ==="
+          sed -i 's/k8s-/k8s_/g' playbooks/cluster_setup.yaml
+          
+          echo "=== Playbook when 조건 수정 ==="
+          sed -i '/- name: Setup Infrastructure Node/,/infrastructure/d' playbooks/cluster_setup.yaml
+          
+          echo "수정된 playbook 내용:"
+          cat playbooks/cluster_setup.yaml
+          
+          echo "=== 모듈 문법 수정 ==="
+          find roles/ -name "*.yml" -exec sed -i 's/selinux:/ansible.posix.selinux:/g' {} \;
+          find roles/ -name "*.yaml" -exec sed -i 's/selinux:/ansible.posix.selinux:/g' {} \;
+          find roles/ -name "*.yml" -exec sed -i 's/mount:/ansible.posix.mount:/g' {} \;
+          find roles/ -name "*.yaml" -exec sed -i 's/mount:/ansible.posix.mount:/g' {} \;
+          find roles/ -name "*.yml" -exec sed -i 's/firewalld:/ansible.posix.firewalld:/g' {} \;
+          find roles/ -name "*.yaml" -exec sed -i 's/firewalld:/ansible.posix.firewalld:/g' {} \;
+          
+          echo "=== 연결 테스트 ==="
+          ansible all -i inventory/kube.yaml -m ping -v || echo "연결 실패"
+          
+          echo "=== 클러스터 설치 ==="
+          ansible-playbook -i inventory/kube.yaml playbooks/cluster_setup.yaml --tags master -v || echo "마스터 설치 실패"
+          ansible-playbook -i inventory/kube.yaml playbooks/cluster_setup.yaml --tags worker -v || echo "워커 설치 실패"
+        env:
+        - name: ANSIBLE_HOST_KEY_CHECKING
+          value: "false"
+        volumeMounts:
+        - name: repo
+          mountPath: /repo
+        - name: host-ssh
+          mountPath: /runner/ssh
+          readOnly: true 
