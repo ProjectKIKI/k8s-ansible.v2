@@ -117,29 +117,27 @@ spec:
           # Helm 설치 role에서 PATH 문제 해결
           if [ -f "roles/install_helm/tasks/main.yaml" ]; then
             echo "Helm role 수정 중..."
-            cat >> roles/install_helm/tasks/main.yaml << 'EOF'
-
-- name: Add /usr/local/bin to PATH
-  lineinfile:
-    path: /root/.bashrc
-    line: 'export PATH=$PATH:/usr/local/bin'
-    create: yes
-
-- name: Create symlink for helm in /usr/bin
-  file:
-    src: /usr/local/bin/helm
-    dest: /usr/bin/helm
-    state: link
-  ignore_errors: yes
-
-- name: Verify helm installation
-  shell: /usr/local/bin/helm version --short
-  register: helm_version
-  
-- name: Display helm version
-  debug:
-    msg: "Helm version: {{ helm_version.stdout }}"
-EOF
+            echo "" >> roles/install_helm/tasks/main.yaml
+            echo "- name: Add /usr/local/bin to PATH" >> roles/install_helm/tasks/main.yaml
+            echo "  lineinfile:" >> roles/install_helm/tasks/main.yaml
+            echo "    path: /root/.bashrc" >> roles/install_helm/tasks/main.yaml
+            echo "    line: 'export PATH=\$PATH:/usr/local/bin'" >> roles/install_helm/tasks/main.yaml
+            echo "    create: yes" >> roles/install_helm/tasks/main.yaml
+            echo "" >> roles/install_helm/tasks/main.yaml
+            echo "- name: Create symlink for helm in /usr/bin" >> roles/install_helm/tasks/main.yaml
+            echo "  file:" >> roles/install_helm/tasks/main.yaml
+            echo "    src: /usr/local/bin/helm" >> roles/install_helm/tasks/main.yaml
+            echo "    dest: /usr/bin/helm" >> roles/install_helm/tasks/main.yaml
+            echo "    state: link" >> roles/install_helm/tasks/main.yaml
+            echo "  ignore_errors: yes" >> roles/install_helm/tasks/main.yaml
+            echo "" >> roles/install_helm/tasks/main.yaml
+            echo "- name: Verify helm installation" >> roles/install_helm/tasks/main.yaml
+            echo "  shell: /usr/local/bin/helm version --short" >> roles/install_helm/tasks/main.yaml
+            echo "  register: helm_version" >> roles/install_helm/tasks/main.yaml
+            echo "" >> roles/install_helm/tasks/main.yaml
+            echo "- name: Display helm version" >> roles/install_helm/tasks/main.yaml
+            echo "  debug:" >> roles/install_helm/tasks/main.yaml
+            echo "    msg: \"Helm version: {{ helm_version.stdout }}\"" >> roles/install_helm/tasks/main.yaml
           fi
           
           echo "=== Environment 설정 ==="
@@ -148,9 +146,9 @@ EOF
           echo "=== Helm 직접 설치 (백업 방법) ==="
           curl -fsSL https://get.helm.sh/helm-v3.15.4-linux-amd64.tar.gz -o helm.tar.gz
           tar -zxvf helm.tar.gz
-          sudo mv linux-amd64/helm /usr/local/bin/helm
-          sudo chmod +x /usr/local/bin/helm
-          sudo ln -sf /usr/local/bin/helm /usr/bin/helm
+          mv linux-amd64/helm /usr/local/bin/helm
+          chmod +x /usr/local/bin/helm
+          ln -sf /usr/local/bin/helm /usr/bin/helm
           /usr/local/bin/helm version --short || echo "Helm 직접 설치 완료"
           
           echo "=== 연결 테스트 ==="
