@@ -3,7 +3,6 @@
   set_fact:
     kubernetes_version: "v1.31"
     crio_version: "v1.31"
-    k8s_package_version: "1.31.1-1.1"
 
 - name: Add Kubernetes YUM repository
   copy:
@@ -27,11 +26,17 @@
       gpgcheck=1
       gpgkey=https://pkgs.k8s.io/addons:/cri-o:/stable:/{{ crio_version }}/rpm/repodata/repomd.xml.key
 
-- name: Search for required packages (debug)
-  command: dnf search kubectl kubeadm kubelet cri-o
-  register: package_search
-  changed_when: false
+- name: Clean DNF cache and update repository metadata
+  command: dnf clean all && dnf makecache
+
+- name: Check available Kubernetes package versions
+  shell: dnf list available kubelet kubeadm kubectl --showduplicates | grep -E "kubelet|kubeadm|kubectl" | head -10
+  register: available_packages
   ignore_errors: true
+
+- name: Display available package versions
+  debug:
+    msg: "Available packages: {{ available_packages.stdout_lines }}"
 
 - name: Install CRI-O with specific version
   dnf:
@@ -39,14 +44,26 @@
       - cri-o
     state: present
 
-- name: Install Kubernetes packages with specific versions
+- name: Install Kubernetes packages (latest from 1.31 repository)
   dnf:
     name:
-      - "kubelet-{{ k8s_package_version }}"
-      - "kubeadm-{{ k8s_package_version }}"
-      - "kubectl-{{ k8s_package_version }}"
+      - kubelet
+      - kubeadm  
+      - kubectl
     state: present
-    allow_downgrade: yes
+
+- name: Check installed Kubernetes package versions
+  shell: rpm -qa | grep -E "kubelet|kubeadm|kubectl" | sort
+  register: installed_packages
+
+- name: Display installed package versions
+  debug:
+    msg: "Installed packages: {{ installed_packages.stdout_lines }}"
+
+- name: Hold Kubernetes packages to prevent updates
+  shell: |
+    dnf versionlock add kubelet kubeadm kubectl
+  ignore_errors: true
 
 - name: Enable and start CRI-O and Kubelet services
   systemd:
