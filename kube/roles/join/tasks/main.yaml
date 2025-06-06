@@ -1,7 +1,7 @@
 ---
-- name: Ensure kubeadm-join-config.yaml is present on the compute node
-  ansible.builtin.copy:
-    src: kubeadm-join-config.yaml
+- name: Generate kubeadm-join-config.yaml from template
+  ansible.builtin.template:
+    src: kubeadm-join-config.yaml.j2
     dest: /etc/kubernetes/kubeadm-join-config.yaml
     owner: root
     group: root

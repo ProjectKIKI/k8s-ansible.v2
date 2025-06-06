@@ -93,7 +93,7 @@
     line: "{{ item }}"
     create: yes
   with_items:
-    - "192.168.0.200 node1.example.com node1"
-    - "192.168.0.201 node2.example.com node2"
-    - "192.168.0.202 node3.example.com node3"
-    - "192.168.0.210 storage.example.com storage"
+    - "{{ hostvars['controller']['ansible_host'] }} node1.example.com node1"
+    - "{{ hostvars['compute1']['ansible_host'] }} node2.example.com node2"
+    - "{{ hostvars['compute2']['ansible_host'] }} node3.example.com node3"
+    - "{{ hostvars['infra']['ansible_host'] }} storage.example.com storage"

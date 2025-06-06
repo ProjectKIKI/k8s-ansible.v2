@@ -1,8 +1,8 @@
 ---
 # tasks/main.yml
-- name: Copy kubeadm config file
-  copy:
-    src: kubeadm-config.yaml
+- name: Generate kubeadm config file from template
+  template:
+    src: kubeadm-config.yaml.j2
     dest: /root/kubeadm-config.yaml
 
 - name: Initialize Kubernetes on controller node
