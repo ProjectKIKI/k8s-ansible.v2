@@ -21,7 +21,21 @@ spec:
       - name: git-clone
         image: docker.io/alpine/git:latest
         workingDir: /repo
-        command: ["sh", "-c", "git clone --depth 1 https://github.com/ProjectKIKI/k8s-ansible.v2.git /repo/k8s-ansible.v2"]
+        command: ["sh", "-c"]
+        args:
+        - |
+          set -e
+          echo "=== 기존 파일 정리 ==="
+          # 기존 파일들 완전 삭제
+          rm -rf /repo/*
+          rm -rf /repo/.*  2>/dev/null || true
+          ls -la /repo
+          
+          echo "=== Git Clone 시작 ==="
+          git clone --depth 1 https://github.com/ProjectKIKI/k8s-ansible.v2.git /repo/k8s-ansible.v2
+          
+          echo "=== Clone 완료 확인 ==="
+          ls -la /repo/k8s-ansible.v2/kube/inventory/
         volumeMounts:
         - name: repo
           mountPath: /repo
@@ -41,6 +55,13 @@ spec:
           echo "=== 작업 디렉토리 확인 ==="
           pwd
           ls -la
+          
+          echo "=== Git에서 가져온 원본 inventory 확인 ==="
+          echo "원본 inventory 파일 내용:"
+          cat inventory/kube.yaml
+          echo ""
+          echo "원본 inventory 디렉토리:"
+          ls -la inventory/
           
           echo "=== SSH 키 디렉토리 상세 확인 ==="
           echo "SSH 키 디렉토리 내용:"
