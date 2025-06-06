@@ -113,6 +113,46 @@ spec:
           find roles/ -name "*.yml" -exec sed -i 's/firewalld:/ansible.posix.firewalld:/g' {} \;
           find roles/ -name "*.yaml" -exec sed -i 's/firewalld:/ansible.posix.firewalld:/g' {} \;
           
+          echo "=== Helm 설치 문제 수정 ==="
+          # Helm 설치 role에서 PATH 문제 해결
+          if [ -f "roles/install_helm/tasks/main.yaml" ]; then
+            echo "Helm role 수정 중..."
+            cat >> roles/install_helm/tasks/main.yaml << 'EOF'
+
+- name: Add /usr/local/bin to PATH
+  lineinfile:
+    path: /root/.bashrc
+    line: 'export PATH=$PATH:/usr/local/bin'
+    create: yes
+
+- name: Create symlink for helm in /usr/bin
+  file:
+    src: /usr/local/bin/helm
+    dest: /usr/bin/helm
+    state: link
+  ignore_errors: yes
+
+- name: Verify helm installation
+  shell: /usr/local/bin/helm version --short
+  register: helm_version
+  
+- name: Display helm version
+  debug:
+    msg: "Helm version: {{ helm_version.stdout }}"
+EOF
+          fi
+          
+          echo "=== Environment 설정 ==="
+          export PATH=$PATH:/usr/local/bin
+          
+          echo "=== Helm 직접 설치 (백업 방법) ==="
+          curl -fsSL https://get.helm.sh/helm-v3.15.4-linux-amd64.tar.gz -o helm.tar.gz
+          tar -zxvf helm.tar.gz
+          sudo mv linux-amd64/helm /usr/local/bin/helm
+          sudo chmod +x /usr/local/bin/helm
+          sudo ln -sf /usr/local/bin/helm /usr/bin/helm
+          /usr/local/bin/helm version --short || echo "Helm 직접 설치 완료"
+          
           echo "=== 연결 테스트 ==="
           ansible all -i inventory/kube.yaml -m ping -v || echo "연결 실패"
           
@@ -122,6 +162,8 @@ spec:
         env:
         - name: ANSIBLE_HOST_KEY_CHECKING
           value: "false"
+        - name: PATH
+          value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         volumeMounts:
         - name: repo
           mountPath: /repo
