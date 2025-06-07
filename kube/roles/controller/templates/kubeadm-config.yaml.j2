@@ -1,5 +1,5 @@
 ---
-apiVersion: kubeadm.k8s.io/v1beta4
+apiVersion: kubeadm.k8s.io/v1beta3
 kind: InitConfiguration
 nodeRegistration:
   name: "node1.example.com"
@@ -16,9 +16,9 @@ bootstrapTokens:
     groups:
       - system:bootstrappers:kubeadm:default-node-token
 ---
-apiVersion: kubeadm.k8s.io/v1beta4
+apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
-kubernetesVersion: v1.32.0
+kubernetesVersion: v1.30.0
 networking:
   podSubnet: "192.168.0.0/16"
   serviceSubnet: "10.96.0.0/16"

@@ -9,7 +9,7 @@
 
 - name: Download pre-built helm tarball
   get_url:
-    url: https://get.helm.sh/helm-v3.14.4-linux-amd64.tar.gz
+    url: https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz
     dest: /tmp/helm.tar.gz
     mode: '0644'
   register: helm_pkg

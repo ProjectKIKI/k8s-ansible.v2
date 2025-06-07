@@ -45,7 +45,7 @@
 
 - name: Calico 설치
   ansible.builtin.command:
-    cmd: "helm install calico projectcalico/tigera-operator --version v3.27.5 --namespace tigera-operator"
+    cmd: "helm install calico projectcalico/tigera-operator --version v3.26.4 --namespace tigera-operator"
   environment:
     PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
 
